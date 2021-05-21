@@ -1,0 +1,143 @@
+#!/usr/bin/perl
+# Create a UEFI "Firmware File" (FFS) with optional features.
+use warnings;
+use strict;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use Getopt::Long;
+use Digest::SHA 'sha1';
+use EFI;
+
+my $usage = <<"END";
+Usage:
+    $0 -o output.ffs [options] file.efi [...]
+Options:
+    -h | -? | --help              This help
+    -o | --output output.ffs      Output file (default is stdout)
+    -n | --name FileName          Name to include in UI Section 
+    -t | --type Type              FREEFORM|DRIVER|SMM|DXE_CORE|SMM_CORE|PEIM
+    -v | --version 1.0            Version section
+    -g | --guid GUID              This file GUID (default is hash of Name)
+    -d | --depex 'guid guid..'    Optional dependencies (all ANDed, or TRUE)
+    -z | --compress               Enable LZMA compression
+    -a | --auto                   Detect the section types from the filenames
+END
+
+my $output = '-';
+my $name;
+my $type;
+my $version;
+my $guid;
+my $depex;
+my $compress;
+my $auto;
+
+
+GetOptions(
+	"h|?|help"	=> sub { print $usage; exit 0 },
+	"o|output=s"	=> \$output,
+	"n|name=s"	=> \$name,
+	"t|type=s"	=> \$type,
+	"v|version=s"	=> \$version,
+	"g|guid=s"	=> \$guid,
+	"d|depex=s"	=> \$depex,
+	"z|compress+"	=> \$compress,
+	"a|auto+"	=> \$auto,
+) or die $usage;
+
+die "$type: unknown file type\n"
+	if $type and not exists $EFI::file_types{$type};
+
+die "At least one FFS section is required\n" unless @ARGV;
+
+my @sections;
+
+# Read entire files at a time and append a new section
+# for each file read.  Some special types have their own
+# section type; otherwise we're adding a PE32
+# The file goes first so that it will be aligned correctly
+# on the 4 KB page inside the FV.
+local $/ = undef;
+while(<>)
+{
+	my $sec;
+
+	if ($auto)
+	{
+		# attempt to determine the section type from the name
+		# of the file.  This is useful for re-wrapping
+		# unpacked files from uefi-firmware-parser.
+		if ($ARGV =~ /\.dxe.depex$/)
+		{
+			$sec = 'DXE_DEPEX';
+			$type ||= 'DRIVER';
+		}
+
+		if ($ARGV =~ /\.smm.depex$/)
+		{
+			$sec = 'SMM_DEPEX';
+			$type ||= 'SMM';
+		}
+
+		if ($ARGV =~ /\.pie.depex$/)
+		{
+			$sec = 'PEI_DEPEX';
+			$type ||= 'PEIM';
+		}
+		$sec = 'PE32'		if $ARGV =~ /\.pe$/;
+		$sec = 'RAW'		if $ARGV =~ /\.raw$/;
+		$sec = 'VERSION'	if $ARGV =~ /\.version$/;
+		$sec = 'USER_INTERFACE' if $ARGV =~ /\.ui$/;
+		$sec = 'FREEFORM_SUBTYPE_GUID' if $ARGV =~ /\.freeform.guid$/;
+		
+		die "$ARGV: unknown auto extension\n"
+			unless $sec;
+	} else {
+		$sec = $EFI::section_type_map{$type};
+	}
+
+	push @sections, EFI::section($sec || 'PE32', $_);
+}
+
+# Put the optional parts after the input data
+push @sections, EFI::section(USER_INTERFACE => EFI::ucs16($name))
+	if $name;
+
+push @sections, EFI::section(VERSION => EFI::ucs16(chr(0x00) . $version))
+	if $version;
+
+push @sections, EFI::depex($type, split /\s+/, $depex)
+	if $depex;
+
+
+# If we're compressing, compress the data and wrap it with a GUIDed header
+# replacing all of the existing sections.
+@sections = ( EFI::compress(@sections) )
+	if $compress;
+
+# If no GUID was provided, make one from the name
+# if there is no name from the data
+if ($guid)
+{
+	$guid = EFI::guid($guid);
+}
+elsif ($name)
+{
+	# Generate a deterministic GUID based on the UI name
+	$guid = substr(sha1($name), 0, 16);
+}
+
+# Create the FFS header for the sections
+my $ffs = EFI::ffs($type || 'FREEFORM', $guid, @sections);
+
+
+if ($output eq '-')
+{
+	print $ffs;
+} else {
+	open OUTPUT, ">", $output
+		or die "$output: Unable to open: $!\n";
+
+	print OUTPUT $ffs;
+	close OUTPUT;
+}

@@ -20,6 +20,11 @@ To run the generated `linuxboot.rom` in QEMU:
 make run
 ```
 
+# Requirements
+
+- Go 1.14+ (container uses 1.16)
+- [UTK](https://github.com/linuxboot/fiano) v5.0.0
+- Perl (for `bin/create-ffs`, waiting on [UTK functionality](https://github.com/linuxboot/fiano/pull/239))
 # Docker Container
 
 Build the container image using the provided Dockerfile using:

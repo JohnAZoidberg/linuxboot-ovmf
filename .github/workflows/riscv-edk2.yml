@@ -19,3 +19,9 @@ jobs:
       - uses: ./
         with:
           entrypoint: './build.sh'
+
+      - name: Run in OVMF
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system
+          timeout --foreground 20 make run

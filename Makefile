@@ -1,5 +1,5 @@
 CPUS        := $(nproc)
-SHELL       := /bin/bash
+SHELL       := /usr/bin/env bash
 EDK2_URL    := https://github.com/johnazoidberg/edk2
 EDK2_BRANCH := ovmf-16mb-linuxboot-in-edk2
 

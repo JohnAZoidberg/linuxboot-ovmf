@@ -37,3 +37,4 @@ d9dcc5df-4007-435e-9098-8970935504b2 PlatformDxe
 22dc2b60-fe40-42ac-b01f-3ab1fad9aad8 EmuVariableFvbRuntimeDxe
 fe5cea76-4f72-49e8-986f-2cd899dffe5d FaultTolerantWriteDxe
 cbd2e4d5-7068-4ff5-b462-9822b4ad8d60 VariableRuntimeDxe
+8718bf01-7828-411c-ba00-559ef5562954 LinuxBoot

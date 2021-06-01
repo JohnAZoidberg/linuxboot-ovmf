@@ -1,23 +1,20 @@
 CPUS        := $(nproc)
 SHELL       := /bin/bash
-EDK2_URL    := https://github.com/synackd/edk2
-EDK2_BRANCH := ovmf-16mb
+EDK2_URL    := https://github.com/johnazoidberg/edk2
+EDK2_BRANCH := ovmf-16mb-linuxboot-in-edk2
 
 all: linuxboot.rom
 
 linuxboot.rom: \
 	image-files.txt \
 	linux.ffs \
-	linuxboot/linuxboot.ffs \
 	edk2/Build/OvmfX64/DEBUG_GCC5/FV/OVMF.fd
 	utk \
 		edk2/Build/OvmfX64/DEBUG_GCC5/FV/OVMF.fd \
 		remove_dxes_except image-files.txt \
-		insert_dxe linuxboot/linuxboot.ffs \
 		insert_dxe linux.ffs \
 		save $@
 
-linuxboot/linuxboot.ffs:
 	$(MAKE) -C $(dir $@)
 
 # We unfortunately need the Perl version of create-ffs until the utk version
